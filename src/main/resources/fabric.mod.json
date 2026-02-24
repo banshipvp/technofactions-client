@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "technofactions",
+  "version": "1.0.0",
+  "name": "TechnoFactions",
+  "description": "Client map + drag-claim UI for TechnoFactions (works with server bridge via plugin messages).",
+  "authors": ["Camer"],
+  "license": "All-Rights-Reserved",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "com.technofactions.client.TechnoFactionsClient"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.15.11",
+    "fabric-api": "*",
+    "minecraft": "1.21.10"
+  }
+}
