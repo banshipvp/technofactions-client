@@ -10,7 +10,7 @@ import net.minecraft.util.Identifier;
 public final class TerrainMinimapFull {
 
     // 🔥 Increased resolution for sharp map
-    private static final int SAMPLE_SIZE = 1024;
+    private static final int SAMPLE_SIZE = 512;
 
     private static final int[] FRONT   = new int[SAMPLE_SIZE * SAMPLE_SIZE];
     private static final int[] FRONT_H = new int[SAMPLE_SIZE * SAMPLE_SIZE];
@@ -63,72 +63,66 @@ private static final int MAX_BLOCKS_ACROSS = 2048;
         boost = on;
     }
 
-    public static void tickAt(int desiredBPP, int centerX, int centerZ) {
+    public static void tickAt(int blocksAcross, int centerX, int centerZ) {
 
-int desiredBlocksAcross = desiredBPP * SAMPLE_SIZE;
+    if (blocksAcross < MIN_BLOCKS_ACROSS)
+        blocksAcross = MIN_BLOCKS_ACROSS;
 
-if (desiredBlocksAcross < MIN_BLOCKS_ACROSS)
-    desiredBlocksAcross = MIN_BLOCKS_ACROSS;
+    if (blocksAcross > MAX_BLOCKS_ACROSS)
+        blocksAcross = MAX_BLOCKS_ACROSS;
 
-if (desiredBlocksAcross > MAX_BLOCKS_ACROSS)
-    desiredBlocksAcross = MAX_BLOCKS_ACROSS;
+    requestedBlocksPerPixel = Math.max(1, blocksAcross / SAMPLE_SIZE);
 
-requestedBlocksPerPixel = Math.max(1, desiredBlocksAcross / SAMPLE_SIZE);
+    MinecraftClient mc = MinecraftClient.getInstance();
+    ClientWorld world = mc.world;
+    if (world == null) return;
 
-        MinecraftClient mc = MinecraftClient.getInstance();
-        ClientWorld world = mc.world;
-        if (world == null) return;
+    ensureTexture();
+    TerrainSurfaceCache.ensureWorld(world);
 
-        ensureTexture();
-        TerrainSurfaceCache.ensureWorld(world);
+    String sessionKey = computeSessionKey(world);
+    if (!sessionKey.equals(lastSessionKey)) {
+        lastSessionKey = sessionKey;
+        hardResetFrames();
+    }
 
-        String sessionKey = computeSessionKey(world);
-        if (!sessionKey.equals(lastSessionKey)) {
-            lastSessionKey = sessionKey;
-            hardResetFrames();
-        }
+    if (blocksPerPixel != requestedBlocksPerPixel) {
+        blocksPerPixel = requestedBlocksPerPixel;
+        startRebuild(centerX, centerZ, false);
+    }
 
-       if (blocksPerPixel != requestedBlocksPerPixel) {
-    blocksPerPixel = requestedBlocksPerPixel;
-    startRebuild(centerX, centerZ, false);
-}
+    int threshold = Math.max(1, blocksPerPixel);
 
-        int threshold = Math.max(1, blocksPerPixel);
+    if (!boost && rebuilding && targetCenterX != Integer.MIN_VALUE) {
+        int dx = Math.abs(centerX - targetCenterX);
+        int dz = Math.abs(centerZ - targetCenterZ);
 
-        // 🔥 DO NOT retarget while boost (prevents stutter)
-        if (!boost && rebuilding && targetCenterX != Integer.MIN_VALUE) {
-            int dx = Math.abs(centerX - targetCenterX);
-            int dz = Math.abs(centerZ - targetCenterZ);
-
-            int retarget = Math.max(1, threshold); // slightly more responsive
-
-            if (dx >= retarget || dz >= retarget) {
-                startRebuild(centerX, centerZ, true);
-            }
-        }
-
-        if (!rebuilding) {
-            if (targetCenterX == Integer.MIN_VALUE) {
-                startRebuild(centerX, centerZ, false);
-            } else {
-                int dx = Math.abs(centerX - targetCenterX);
-                int dz = Math.abs(centerZ - targetCenterZ);
-                if (dx >= threshold || dz >= threshold) {
-                    startRebuild(centerX, centerZ, true);
-                }
-            }
-        }
-
-        if (boost) {
-            rowsPerTick = ROWS_MAX;
-            stableTicks = 0;
-        }
-
-        if (rebuilding) {
-            stepBuild();
+        if (dx >= threshold || dz >= threshold) {
+            startRebuild(centerX, centerZ, true);
         }
     }
 
+    if (!rebuilding) {
+        if (targetCenterX == Integer.MIN_VALUE) {
+            startRebuild(centerX, centerZ, false);
+        } else {
+            int dx = Math.abs(centerX - targetCenterX);
+            int dz = Math.abs(centerZ - targetCenterZ);
+            if (dx >= threshold || dz >= threshold) {
+                startRebuild(centerX, centerZ, true);
+            }
+        }
+    }
+
+    if (boost) {
+        rowsPerTick = ROWS_MAX;
+        stableTicks = 0;
+    }
+
+    if (rebuilding) {
+        stepBuild();
+    }
+}
     private static void hardResetFrames() {
         for (int i = 0; i < FRONT.length; i++) {
             FRONT[i] = UNKNOWN_ARGB;

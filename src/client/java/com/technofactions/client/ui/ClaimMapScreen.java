@@ -194,34 +194,27 @@ private static final int[] ZOOMS = {512, 1024, 2048};
         centerChunkX = Math.floorDiv(viewCenterX, 16);
         centerChunkZ = Math.floorDiv(viewCenterZ, 16);
 
-    int sample = TerrainMinimapFull.sampleSize();
 int blocksAcross = ZOOMS[zoomIndex];
 
-// convert to terrain sampling rate
-int bpp = Math.max(1, blocksAcross / sample);
 
-        int mapSize = Math.min(this.width, this.height) - 40;
-        mapSize = Math.max(200, mapSize);
-        int mapX = (this.width - mapSize) / 2;
-        int mapY = (this.height - mapSize) / 2;
+int mapSize = Math.min(this.width, this.height) - 40;
+mapSize = Math.max(200, mapSize);
+int mapX = (this.width - mapSize) / 2;
+int mapY = (this.height - mapSize) / 2;
 
-        drawTerrainSquare(ctx, mapX, mapY, mapSize, mapSize);
-        drawCompassOutside(ctx, mapX, mapY, mapSize, mapSize);
-
-        ctx.drawTextWithShadow(
-                textRenderer,
-                "Zoom: " + bpp + " blocks/pixel (~" + blocksAcross + "m)  Scroll zoom  F follow: " + (followPlayer ? "ON" : "OFF") + " | MMB hold: pan",
-                10, 10, 0xFFFFFFFF
-        );
-
+// world projection
 double halfBlocks = blocksAcross / 2.0;
 double worldLeftX = (viewCenterX + 0.5) - halfBlocks;
-double worldTopZ = (viewCenterZ + 0.5) - halfBlocks;
+double worldTopZ  = (viewCenterZ + 0.5) - halfBlocks;
 
-double pxPerTexel = mapSize / (double) sample;
-double pxPerBlock = pxPerTexel / (double) bpp;
+// pixels per block
+double pxPerBlock = mapSize / (double) blocksAcross;
 double pxPerChunk = 16.0 * pxPerBlock;
 
+// render terrain
+drawTerrainSquare(ctx, mapX, mapY, mapSize, mapSize);
+
+// draw grid AFTER projection values exist
 drawChunkGrid(ctx, mapX, mapY, mapSize, worldLeftX, worldTopZ, pxPerBlock);
 
         int chunksAcross = (int) Math.ceil(mapSize / Math.max(2.0, pxPerChunk));
@@ -437,7 +430,7 @@ private void drawChunkGrid(DrawContext ctx,
 
     double pxPerChunk = 16.0 * pxPerBlock;
 
-    if (pxPerChunk < 6) return; // don't draw if too zoomed out
+if (pxPerChunk < 3) return;
 
     int chunksAcross = (int) Math.ceil(mapSize / pxPerChunk) + 2;
 
@@ -480,11 +473,16 @@ private void drawChunkGrid(DrawContext ctx,
     }
 
 private void drawTerrainSquare(DrawContext ctx, int x0, int y0, int w, int h) {
-    int bpp = ZOOMS[zoomIndex];
-    TerrainMinimapFull.tickAt(bpp, viewCenterX, viewCenterZ);
-    int s = TerrainMinimapFull.sampleSize();
 
-    // 🔥 CLIP RENDER AREA
+    int blocksAcross = ZOOMS[zoomIndex];
+
+    // terrain texture has fixed resolution (sample x sample)
+    int sample = TerrainMinimapFull.sampleSize();
+
+    // blocks per pixel for the terrain builder
+    int bpp = Math.max(1, blocksAcross / sample);
+
+TerrainMinimapFull.tickAt(blocksAcross, viewCenterX, viewCenterZ);
     ctx.enableScissor(x0, y0, x0 + w, y0 + h);
 
     ctx.drawTexture(
@@ -493,8 +491,8 @@ private void drawTerrainSquare(DrawContext ctx, int x0, int y0, int w, int h) {
             x0, y0,
             0f, 0f,
             w, h,
-            s, s,
-            s, s
+            sample, sample,
+            sample, sample
     );
 
     ctx.disableScissor();
@@ -503,7 +501,6 @@ private void drawTerrainSquare(DrawContext ctx, int x0, int y0, int w, int h) {
         ctx.drawTextWithShadow(textRenderer, "Updating...", x0 + 6, y0 + 6, 0xFFFFFFFF);
     }
 }
-
     private void drawCompassOutside(DrawContext ctx, int mapX, int mapY, int mapW, int mapH) {
         ctx.drawTextWithShadow(textRenderer, "N", mapX + mapW / 2 - 3, mapY - 18, 0xFFFFFFFF);
         ctx.drawTextWithShadow(textRenderer, "S", mapX + mapW / 2 - 3, mapY + mapH + 6, 0xFFFFFFFF);
@@ -542,21 +539,17 @@ private void drawTerrainSquare(DrawContext ctx, int x0, int y0, int w, int h) {
         boolean leftDown = GLFW.glfwGetMouseButton(handle, GLFW.GLFW_MOUSE_BUTTON_1) == GLFW.GLFW_PRESS;
         boolean rightDown = GLFW.glfwGetMouseButton(handle, GLFW.GLFW_MOUSE_BUTTON_2) == GLFW.GLFW_PRESS;
         boolean middleDown = GLFW.glfwGetMouseButton(handle, GLFW.GLFW_MOUSE_BUTTON_3) == GLFW.GLFW_PRESS;
+int mapSize = Math.min(this.width, this.height) - 40;
+mapSize = Math.max(200, mapSize);
+int mapX = (this.width - mapSize) / 2;
+int mapY = (this.height - mapSize) / 2;
+       int blocksAcross = ZOOMS[zoomIndex];
 
-        int sample = TerrainMinimapFull.sampleSize();
-        int bpp = ZOOMS[zoomIndex];
+double halfBlocks = blocksAcross / 2.0;
+double worldLeftX = (viewCenterX + 0.5) - halfBlocks;
+double worldTopZ  = (viewCenterZ + 0.5) - halfBlocks;
 
-        int mapSize = Math.min(this.width, this.height) - 40;
-        mapSize = Math.max(200, mapSize);
-        int mapX = (this.width - mapSize) / 2;
-        int mapY = (this.height - mapSize) / 2;
-
-        double halfBlocks = (sample * (double) bpp) / 2.0;
-        double worldLeftX = (viewCenterX + 0.5) - halfBlocks;
-        double worldTopZ  = (viewCenterZ + 0.5) - halfBlocks;
-
-        double pxPerTexel = mapSize / (double) sample;
-        double pxPerBlock = pxPerTexel / (double) bpp;
+double pxPerBlock = mapSize / (double) blocksAcross;
 
         Hover h = getHover(mouseX, mouseY, mapX, mapY, mapSize, worldLeftX, worldTopZ, pxPerBlock);
 
