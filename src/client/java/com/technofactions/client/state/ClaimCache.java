@@ -3,6 +3,7 @@ package com.technofactions.client.state;
 import net.minecraft.network.PacketByteBuf;
 
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 
 public final class ClaimCache {
@@ -25,6 +26,32 @@ public final class ClaimCache {
         return cells.get(key(x, z));
     }
 
+    public static synchronized void remove(int x, int z) {
+        cells.remove(key(x, z));
+    }
+
+    /**
+     * Prevent unbounded growth: remove cached cells far away from the current view.
+     * keepRadius is in CHUNKS.
+     */
+    public static synchronized void pruneOutside(int centerCx, int centerCz, int keepRadius) {
+        long minX = (long) centerCx - keepRadius;
+        long maxX = (long) centerCx + keepRadius;
+        long minZ = (long) centerCz - keepRadius;
+        long maxZ = (long) centerCz + keepRadius;
+
+        Iterator<Map.Entry<Long, Cell>> it = cells.entrySet().iterator();
+        while (it.hasNext()) {
+            long k = it.next().getKey();
+            int x = (int) (k >> 32);
+            int z = (int) (k & 0xFFFFFFFFL);
+
+            if (x < minX || x > maxX || z < minZ || z > maxZ) {
+                it.remove();
+            }
+        }
+    }
+
     private static long key(int x, int z) {
         return (((long) x) << 32) ^ (z & 0xffffffffL);
     }
@@ -35,7 +62,7 @@ public final class ClaimCache {
         int count = buf.readInt();
 
         synchronized (ClaimCache.class) {
-            cells.clear();
+            // MERGE snapshot so we don't get the "box wipe" look
             for (int i = 0; i < count; i++) {
                 int cx = buf.readInt();
                 int cz = buf.readInt();

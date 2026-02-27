@@ -1,6 +1,7 @@
 package com.technofactions.client.net;
 
 import com.technofactions.client.state.ClaimCache;
+import com.technofactions.client.ui.ClaimMapScreen;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.minecraft.client.MinecraftClient;
@@ -14,23 +15,39 @@ public final class Net {
 
     private Net() {}
 
+    private static final Identifier CLAIM_QUERY_ID =
+            Identifier.of("technofactions", "claim_query");
+
+    private static final Identifier CLAIM_REQUEST_ID =
+            Identifier.of("technofactions", "claim_request");
+
+    private static final Identifier UNCLAIM_REQUEST_ID =
+            Identifier.of("technofactions", "unclaim_request");
+
+    private static final Identifier CLAIM_RESULT_ID =
+            Identifier.of("technofactions", "claim_result");
+
+    private static final Identifier CLAIM_SNAPSHOT_ID =
+            Identifier.of("technofactions", "claim_snapshot");
+
     /*
-     * ================================
-     * SNAPSHOT QUERY (C2S)
-     * ================================
+     * ===============================
+     * CLAIM QUERY (C2S)
+     * ===============================
      */
 
-    public record ClaimQueryPayload(int centerX, int centerZ, int radius) implements CustomPayload {
+    public record ClaimQueryPayload(int centerX, int centerZ, int radius)
+            implements CustomPayload {
 
         public static final Id<ClaimQueryPayload> ID =
-                new Id<>(Identifier.of("technofactions", "claim_query"));
+                new Id<>(CLAIM_QUERY_ID);
 
         public static final PacketCodec<PacketByteBuf, ClaimQueryPayload> CODEC =
                 PacketCodec.of(
                         (value, buf) -> {
-                            buf.writeInt(value.centerX());
-                            buf.writeInt(value.centerZ());
-                            buf.writeInt(value.radius());
+                            buf.writeInt(value.centerX);
+                            buf.writeInt(value.centerZ);
+                            buf.writeInt(value.radius);
                         },
                         buf -> new ClaimQueryPayload(
                                 buf.readInt(),
@@ -40,29 +57,28 @@ public final class Net {
                 );
 
         @Override
-        public Id<? extends CustomPayload> getId() {
-            return ID;
-        }
+        public Id<? extends CustomPayload> getId() { return ID; }
     }
 
     /*
-     * ================================
-     * CLAIM REQUEST (C2S)
-     * ================================
+     * ===============================
+     * CLAIM / UNCLAIM (C2S)
+     * ===============================
      */
 
-    public record ClaimRequestPayload(int x1, int z1, int x2, int z2) implements CustomPayload {
+    public record ClaimRequestPayload(int x1, int z1, int x2, int z2)
+            implements CustomPayload {
 
         public static final Id<ClaimRequestPayload> ID =
-                new Id<>(Identifier.of("technofactions", "claim_request"));
+                new Id<>(CLAIM_REQUEST_ID);
 
         public static final PacketCodec<PacketByteBuf, ClaimRequestPayload> CODEC =
                 PacketCodec.of(
                         (value, buf) -> {
-                            buf.writeInt(value.x1());
-                            buf.writeInt(value.z1());
-                            buf.writeInt(value.x2());
-                            buf.writeInt(value.z2());
+                            buf.writeInt(value.x1);
+                            buf.writeInt(value.z1);
+                            buf.writeInt(value.x2);
+                            buf.writeInt(value.z2);
                         },
                         buf -> new ClaimRequestPayload(
                                 buf.readInt(),
@@ -73,50 +89,52 @@ public final class Net {
                 );
 
         @Override
-        public Id<? extends CustomPayload> getId() {
-            return ID;
-        }
+        public Id<? extends CustomPayload> getId() { return ID; }
     }
 
-    /*
-     * ================================
-     * SNAPSHOT RESPONSE (S2C)
-     * ================================
-     */
+    public record UnclaimRequestPayload(int x1, int z1, int x2, int z2)
+            implements CustomPayload {
 
-    public record ClaimSnapshotPayload(PacketByteBuf raw) implements CustomPayload {
+        public static final Id<UnclaimRequestPayload> ID =
+                new Id<>(UNCLAIM_REQUEST_ID);
 
-        public static final Id<ClaimSnapshotPayload> ID =
-                new Id<>(Identifier.of("technofactions", "claim_snapshot"));
-
-        public static final PacketCodec<PacketByteBuf, ClaimSnapshotPayload> CODEC =
+        public static final PacketCodec<PacketByteBuf, UnclaimRequestPayload> CODEC =
                 PacketCodec.of(
-                        (value, buf) -> buf.writeBytes(value.raw()),
-                        buf -> new ClaimSnapshotPayload(buf)
+                        (value, buf) -> {
+                            buf.writeInt(value.x1);
+                            buf.writeInt(value.z1);
+                            buf.writeInt(value.x2);
+                            buf.writeInt(value.z2);
+                        },
+                        buf -> new UnclaimRequestPayload(
+                                buf.readInt(),
+                                buf.readInt(),
+                                buf.readInt(),
+                                buf.readInt()
+                        )
                 );
 
         @Override
-        public Id<? extends CustomPayload> getId() {
-            return ID;
-        }
+        public Id<? extends CustomPayload> getId() { return ID; }
     }
 
     /*
-     * ================================
+     * ===============================
      * CLAIM RESULT (S2C)
-     * ================================
+     * ===============================
      */
 
-    public record ClaimResultPayload(boolean success, String message) implements CustomPayload {
+    public record ClaimResultPayload(boolean success, String message)
+            implements CustomPayload {
 
         public static final Id<ClaimResultPayload> ID =
-                new Id<>(Identifier.of("technofactions", "claim_result"));
+                new Id<>(CLAIM_RESULT_ID);
 
         public static final PacketCodec<PacketByteBuf, ClaimResultPayload> CODEC =
                 PacketCodec.of(
                         (value, buf) -> {
-                            buf.writeBoolean(value.success());
-                            buf.writeString(value.message());
+                            buf.writeBoolean(value.success);
+                            buf.writeString(value.message);
                         },
                         buf -> new ClaimResultPayload(
                                 buf.readBoolean(),
@@ -125,61 +143,95 @@ public final class Net {
                 );
 
         @Override
-        public Id<? extends CustomPayload> getId() {
-            return ID;
-        }
+        public Id<? extends CustomPayload> getId() { return ID; }
     }
 
     /*
-     * ================================
-     * REGISTRATION
-     * ================================
+     * ===============================
+     * CLAIM SNAPSHOT (S2C)
+     * ===============================
+     */
+
+    public record ClaimSnapshotPayload() implements CustomPayload {
+
+        public static final Id<ClaimSnapshotPayload> ID =
+                new Id<>(CLAIM_SNAPSHOT_ID);
+
+        public static final PacketCodec<PacketByteBuf, ClaimSnapshotPayload> CODEC =
+                PacketCodec.of(
+                        (value, buf) -> {},
+                        buf -> {
+                            ClaimCache.readSnapshot(buf);
+                            return new ClaimSnapshotPayload();
+                        }
+                );
+
+        @Override
+        public Id<? extends CustomPayload> getId() { return ID; }
+    }
+
+    /*
+     * ===============================
+     * REGISTER
+     * ===============================
      */
 
     public static void registerPayloads() {
+
         PayloadTypeRegistry.playC2S().register(ClaimQueryPayload.ID, ClaimQueryPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(ClaimRequestPayload.ID, ClaimRequestPayload.CODEC);
+        PayloadTypeRegistry.playC2S().register(UnclaimRequestPayload.ID, UnclaimRequestPayload.CODEC);
 
-        PayloadTypeRegistry.playS2C().register(ClaimSnapshotPayload.ID, ClaimSnapshotPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(ClaimResultPayload.ID, ClaimResultPayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(ClaimSnapshotPayload.ID, ClaimSnapshotPayload.CODEC);
     }
 
     public static void registerClientReceivers() {
 
-        ClientPlayNetworking.registerGlobalReceiver(ClaimSnapshotPayload.ID,
+        ClientPlayNetworking.registerGlobalReceiver(
+                ClaimResultPayload.ID,
+                (payload, context) -> context.client().execute(() -> {
+
+                    MinecraftClient mc = MinecraftClient.getInstance();
+
+                    if (mc.player != null) {
+                        mc.player.sendMessage(
+                                Text.literal((payload.success ? "§a" : "§c") + payload.message),
+                                false
+                        );
+                    }
+
+                    if (payload.success) {
+                        // Clear optimistic overlays and pull a fresh snapshot
+                        ClaimMapScreen.clearPending();
+                        ClaimMapScreen.requestFreshSnapshot();
+                    }
+                })
+        );
+
+        ClientPlayNetworking.registerGlobalReceiver(
+                ClaimSnapshotPayload.ID,
                 (payload, context) -> {
-
-                    ClaimCache.readSnapshot(payload.raw());
-                });
-
-        ClientPlayNetworking.registerGlobalReceiver(ClaimResultPayload.ID,
-                (payload, context) -> {
-
-                    MinecraftClient client = MinecraftClient.getInstance();
-                    client.execute(() -> {
-                        if (client.player != null) {
-                            client.player.sendMessage(
-                                    Text.literal((payload.success() ? "§a" : "§c") + payload.message()),
-                                    false
-                            );
-                        }
-                    });
-                });
+                    // ClaimCache.readSnapshot already ran in CODEC decode
+                }
+        );
     }
 
     /*
-     * ================================
-     * SEND METHODS
-     * ================================
+     * ===============================
+     * SEND
+     * ===============================
      */
 
-    public static void requestSnapshot(int centerX, int centerZ, int radius) {
-        ClientPlayNetworking.send(new ClaimQueryPayload(centerX, centerZ, radius));
+    public static void requestSnapshot(int cx, int cz, int radius) {
+        ClientPlayNetworking.send(new ClaimQueryPayload(cx, cz, radius));
     }
-public static void sendClaimChunk(int chunkX, int chunkZ) {
-    // send packet to server
-}
+
     public static void requestClaim(int x1, int z1, int x2, int z2) {
         ClientPlayNetworking.send(new ClaimRequestPayload(x1, z1, x2, z2));
+    }
+
+    public static void requestUnclaim(int x1, int z1, int x2, int z2) {
+        ClientPlayNetworking.send(new UnclaimRequestPayload(x1, z1, x2, z2));
     }
 }

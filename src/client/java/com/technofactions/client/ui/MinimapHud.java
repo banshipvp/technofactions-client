@@ -7,7 +7,11 @@ import net.minecraft.client.gl.RenderPipelines;
 
 public final class MinimapHud {
     private static final int PAD = 4;
-    private static final int HUD_BLOCKS_PER_PIXEL = 2;
+
+    // Higher detail on HUD
+    private static final int HUD_BLOCKS_PER_PIXEL = 1;
+
+    // Keep HUD size; now source texture is 128 so it matches 1:1 => sharper
     private static final int HUD_DRAW_SIZE = 128;
 
     private MinimapHud() {}
@@ -35,17 +39,18 @@ public final class MinimapHud {
 
         int s = TerrainMinimapHud.sampleSize();
 
-        // IMPORTANT: use the overload WITH regionWidth/regionHeight to prevent tiling
+        // prevent tiling (your comment was right)
         ctx.drawTexture(
                 RenderPipelines.GUI_TEXTURED,
                 TerrainMinimapHud.textureId(),
                 x0, y0,
                 0f, 0f,
-                HUD_DRAW_SIZE, HUD_DRAW_SIZE, // draw size on screen
-                s, s,                         // region size in the texture (source)
-                s, s                          // texture size
+                HUD_DRAW_SIZE, HUD_DRAW_SIZE,
+                s, s,
+                s, s
         );
 
+        // crosshair at player (HUD is centered on player)
         int cx = x0 + HUD_DRAW_SIZE / 2;
         int cy = y0 + HUD_DRAW_SIZE / 2;
         ctx.fill(cx - 1, cy - 1, cx + 2, cy + 2, 0xFFFFFFFF);
